@@ -2,6 +2,14 @@
 #define LOGIN_H
 
 #include <QWidget>
+#include <QNetworkAccessManager>
+#include <QNetworkRequest>
+#include <QNetworkReply>
+
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QJsonValue>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -17,7 +25,12 @@ public:
     Login(QWidget *parent = nullptr);
     ~Login();
 
+public slots:
+    void onLoginClicked();
+
 private:
     Ui::Login *ui;
+
+    QNetworkAccessManager m_manager;
 };
 #endif // LOGIN_H

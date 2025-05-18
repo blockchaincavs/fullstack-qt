@@ -24,14 +24,14 @@ void ApiController::webPath(const QHttpServerRequest &request, QHttpServerRespon
     QString msg;
 
     if (!appFile.exists()) {
-        msg = "Resource not found " + resource;
+        msg = "Resource Not Found " + resource;
         responder.sendResponse(
             QHttpServerResponse(msg.toUtf8(), QHttpServerResponse::StatusCode::NotFound));
         return;
     }
 
     if (!appFile.open(QIODevice::ReadOnly)) {
-        msg = "Something went wrong " + resource;
+        msg = "Something went wrong... " + resource;
         responder.sendResponse(
             QHttpServerResponse(msg.toUtf8(), QHttpServerResponse::StatusCode::InternalServerError));
     }
@@ -44,9 +44,62 @@ void ApiController::webPath(const QHttpServerRequest &request, QHttpServerRespon
 
 }
 
+/**
+ * @brief ApiController::authPath
+ * Request handler used to process "/auth" path.
+ *
+ * @param request
+ * @param responder
+ */
+void ApiController::authPath(const QHttpServerRequest &request, QHttpServerResponder &responder)
+{
+    QByteArray body = request.body();
+    QString uri = request.url().path();
+    QString msg; msg.resize(40);
+
+    // Ensure content is json
+    QHttpHeaders headers = request.headers();
+    QString contentType = QString::fromUtf8(headers.value(QHttpHeaders::WellKnownHeader::ContentType));
+
+    if (contentType != "application/json") {
+        msg = "ContentType not application/json.";
+        responder.sendResponse(createResponse(QHttpServerResponse::StatusCode::BadRequest, uri, msg));
+        return;
+    }
+
+    QJsonParseError jsonParseError;
+    QJsonDocument doc(QJsonDocument::fromJson(body, &jsonParseError));
+
+    if (jsonParseError.error != QJsonParseError::ParseError::NoError || !doc.isObject()) {
+        msg = "Failed to parse request body.";
+        responder.sendResponse(createResponse(QHttpServerResponse::StatusCode::BadRequest, uri, msg));
+        return;
+    }
+
+    // check credentials
+    QJsonObject obj = doc.object();
+    QJsonValue username = obj.value("username");
+    QJsonValue password = obj.value("password");
+
+    if (username.toString("") != USERNAME || password.toString("") != PASSWORD) {
+        msg = "Authentication failed.";
+        responder.sendResponse(createResponse(QHttpServerResponse::StatusCode::Unauthorized, uri, msg));
+        return;
+    }
+
+    responder.sendResponse(createResponse(QHttpServerResponse::StatusCode::Ok, uri));
+}
+
+/**
+ * @brief ApiController::apiPath
+ * @param request
+ * @param responder
+ */
 void ApiController::apiPath(const QHttpServerRequest &request, QHttpServerResponder &responder)
 {
-
+    QString uri = request.url().path();
+    QHttpServerResponse response = createResponse(QHttpServerResponse::StatusCode::NotFound, uri);
+    responder.sendResponse(response);
 }
 
 /**
@@ -65,4 +118,46 @@ QString ApiController::getMimeType(const QString &resource)
     QMimeDatabase mimeDatabase;
     QMimeType mimeType = mimeDatabase.mimeTypeForName(resource);
     return mimeType.name();
+}
+
+/**
+ * @brief ApiController::createResponse
+ *
+ * @param code
+ * @param uri
+ * @return
+ */
+QHttpServerResponse ApiController::createResponse(const QHttpServerResponse::StatusCode &code, const QString &uri, QString msg)
+{
+    switch (code) {
+        case QHttpServerResponse::StatusCode::Ok:
+            msg = "Success" + msg;
+            break;
+        case QHttpServerResponse::StatusCode::NotFound:
+            msg = "Resource Not Found";
+            break;
+        case QHttpServerResponse::StatusCode::Unauthorized:
+            msg = "Unauthorized: " + msg;
+            break;
+        case QHttpServerResponse::StatusCode::BadRequest:
+            msg = "Bad Request. " + msg;
+            break;
+        default:
+            msg = "Something went wrong ";
+    }
+
+    QJsonObject responseData {
+        {"message", msg},
+        {"uri", uri},
+        {"code", int(code)}
+    };
+
+    // Cross origin header to indicate response can be shared with any origin
+    QHttpHeaders headers;
+    headers.append(QHttpHeaders::WellKnownHeader::AccessControlAllowOrigin, "*");
+
+    QHttpServerResponse response(responseData, code);
+    response.setHeaders(headers);
+
+    return response;
 }

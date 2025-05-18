@@ -4,7 +4,6 @@
 #include <QObject>
 #include <QHttpServer>
 #include <QTcpServer>
-#include <QJsonObject>
 
 #include "apicontroller.h"
 

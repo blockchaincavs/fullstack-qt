@@ -40,32 +40,24 @@ void ApiRouter::createApiRoutes()
         m_apiController.webPath(request, responder);
     });
 
-    // This is a "catch all" route. It is intended to serve the static webpage
-    m_httpServer.route("/*", QHttpServerRequest::Method::Get,
-        [=](const QString &resource, const QHttpServerRequest &request, QHttpServerResponder &responder) {
+    //
+    m_httpServer.route("/auth", QHttpServerRequest::Method::Post,
+        [=](const QHttpServerRequest &request, QHttpServerResponder &responder) {
 
-        m_apiController.webPath(request, responder);
+        m_apiController.authPath(request, responder);
     });
 
+    // This is a "catch all" route. It is intended to serve the webapp files
+    m_httpServer.route("/*", QHttpServerRequest::Method::Get,
+       [=](const QString &resource, const QHttpServerRequest &request, QHttpServerResponder &responder) {
+
+           m_apiController.webPath(request, responder);
+       });
+
     // Handle api endpoints with one catch All
-    m_httpServer.setMissingHandler(this, [](const QHttpServerRequest &request, QHttpServerResponder &responder) {
-        QString msg("Resource Not found");
-        int code = static_cast<int>(QHttpServerResponse::StatusCode::NotFound);
+    m_httpServer.setMissingHandler(this, [=](const QHttpServerRequest &request, QHttpServerResponder &responder) {
 
-        QJsonObject responseData{
-            {"message", msg},
-            {"uri", request.url().path()},
-            {"code", code}
-        };
-
-        // Cross origin header to indicate response can be shared with any origin
-        QHttpHeaders headers;
-        headers.append(QHttpHeaders::WellKnownHeader::AccessControlAllowHeaders, "*");
-
-        QHttpServerResponse response(responseData, QHttpServerResponse::StatusCode::NotFound);
-        response.setHeaders(headers);
-        responder.sendResponse(response);
-
+        m_apiController.apiPath(request, responder);
     });
 
 }
